@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit tests for ColDoc/mylockfile.py
+Unit tests for wrap_lockfile.py
 
 Tests file locking and atomic write functionality, including direct testing
 of the FcntlFileLock implementation when fcntl is available.
@@ -17,7 +17,7 @@ import shutil
 # Add parent directory to path to import ColDoc modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from ColDoc.mylockfile import (
+from wrap_lockfile import (
     mylockfile,
     myLockTimeout,
     mylockfile_other_exceptions,
@@ -32,7 +32,7 @@ from ColDoc.mylockfile import (
 
 # Import FcntlFileLock if it exists
 if HAVE_FCNTL:
-    from ColDoc.mylockfile import FcntlFileLock
+    from wrap_lockfile import FcntlFileLock
 
 
 class TestFcntlFileLock(unittest.TestCase):

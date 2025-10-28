@@ -308,7 +308,9 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
             with open(temp_file, mode) as f:
                 f.write(content)
 
-            # Atomic rename (POSIX guarantees atomicity)
+            # Atomic rename - on Windows, need to remove destination first
+            if os.name == 'nt' and os.path.exists(filepath):
+                os.remove(filepath)
             os.rename(temp_file, filepath)
 
         except Exception:

@@ -479,6 +479,18 @@ All locking mechanisms are thread-safe:
 
 ---
 
+Developing
+==========
+
+If you wish to help in developing, please
+
+    pip -r requirements-test.txt
+    git config --local core.hooksPath .githooks/
+
+so that each commit is pre tested.
+
+---
+
 ## License
 
 MIT License

@@ -301,6 +301,11 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
     """
     # Resolve symlinks to get the actual target file, but preserve the symlink itself
     filepath = os.path.abspath(filepath)
+
+    # Check if the path exists and is not a regular file (or symlink to file)
+    if os.path.exists(filepath) and not os.path.isfile(filepath):
+        raise RuntimeError('Works only on files, not %r' % filepath)
+
     target_name = filepath
 
     if os.path.islink(filepath):

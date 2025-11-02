@@ -452,6 +452,58 @@ class TestAtomicWriteNoLock(unittest.TestCase):
         with open(self.test_file, 'r', encoding='utf-8') as f:
             self.assertEqual(f.read(), 'Hello 世界 🌍')
 
+    @unittest.skipIf(sys.platform.startswith('win'), "Symlink test requires Unix-like system")
+    def test_symlink_preserved(self):
+        """Test that symlinks are preserved and temp files created in target directory."""
+        # Create a subdirectory for the target file
+        subdir = os.path.join(self.test_dir, 'subdir')
+        os.makedirs(subdir)
+
+        # Create the actual target file in the subdirectory
+        target_file = os.path.join(subdir, 'target.txt')
+        with open(target_file, 'w') as f:
+            f.write('original content')
+
+        # Create a symlink in the parent directory pointing to the target
+        symlink_path = os.path.join(self.test_dir, 'symlink.txt')
+        os.symlink(target_file, symlink_path)
+
+        # Verify symlink exists
+        self.assertTrue(os.path.islink(symlink_path))
+        self.assertEqual(os.readlink(symlink_path), target_file)
+
+        # Track temp files created during the write
+        temp_files_found = []
+
+        # Write through the symlink
+        with atomic_write_no_lock(symlink_path) as f:
+            # Check that temp file is created in the subdirectory, not parent
+            temp_filename = f.name
+            temp_files_found.append(temp_filename)
+            self.assertTrue(temp_filename.startswith(subdir),
+                          f"Temp file {temp_filename} should be in {subdir}")
+            f.write('updated content')
+
+        # Verify symlink is still a symlink (not replaced with regular file)
+        self.assertTrue(os.path.islink(symlink_path),
+                       "Symlink should be preserved, not replaced with regular file")
+
+        # Verify symlink still points to the same target
+        self.assertEqual(os.readlink(symlink_path), target_file)
+
+        # Verify content was updated in the target file
+        with open(target_file, 'r') as f:
+            self.assertEqual(f.read(), 'updated content')
+
+        # Verify reading through symlink works
+        with open(symlink_path, 'r') as f:
+            self.assertEqual(f.read(), 'updated content')
+
+        # Verify no temp files left in subdirectory
+        remaining_files = os.listdir(subdir)
+        self.assertEqual(remaining_files, ['target.txt'],
+                        f"Only target.txt should remain in subdir, found: {remaining_files}")
+
 
 class TestAtomicWriteLock(unittest.TestCase):
     """Test the atomic_write_lock context manager."""
@@ -629,6 +681,54 @@ class TestAtomicWriteLock(unittest.TestCase):
 
         with open(self.test_file, 'r', encoding='utf-8') as f:
             self.assertEqual(f.read(), 'Hello 世界 🌍')
+
+    @unittest.skipIf(sys.platform.startswith('win'), "Symlink test requires Unix-like system")
+    def test_symlink_preserved_with_lock(self):
+        """Test that symlinks are preserved with locking and temp files created in target directory."""
+        # Create a subdirectory for the target file
+        subdir = os.path.join(self.test_dir, 'subdir')
+        os.makedirs(subdir)
+
+        # Create the actual target file in the subdirectory
+        target_file = os.path.join(subdir, 'target.txt')
+        with open(target_file, 'w') as f:
+            f.write('original content')
+
+        # Create a symlink in the parent directory pointing to the target
+        symlink_path = os.path.join(self.test_dir, 'symlink.txt')
+        os.symlink(target_file, symlink_path)
+
+        # Verify symlink exists
+        self.assertTrue(os.path.islink(symlink_path))
+        self.assertEqual(os.readlink(symlink_path), target_file)
+
+        # Write through the symlink with locking
+        with atomic_write_lock(symlink_path) as f:
+            # Check that temp file is created in the subdirectory, not parent
+            temp_filename = f.name
+            self.assertTrue(temp_filename.startswith(subdir),
+                          f"Temp file {temp_filename} should be in {subdir}")
+            f.write('updated with lock')
+
+        # Verify symlink is still a symlink (not replaced with regular file)
+        self.assertTrue(os.path.islink(symlink_path),
+                       "Symlink should be preserved, not replaced with regular file")
+
+        # Verify symlink still points to the same target
+        self.assertEqual(os.readlink(symlink_path), target_file)
+
+        # Verify content was updated in the target file
+        with open(target_file, 'r') as f:
+            self.assertEqual(f.read(), 'updated with lock')
+
+        # Verify reading through symlink works
+        with open(symlink_path, 'r') as f:
+            self.assertEqual(f.read(), 'updated with lock')
+
+        # Verify no temp files left in subdirectory
+        remaining_files = os.listdir(subdir)
+        self.assertEqual(remaining_files, ['target.txt'],
+                        f"Only target.txt should remain in subdir, found: {remaining_files}")
 
 
 if __name__ == '__main__':

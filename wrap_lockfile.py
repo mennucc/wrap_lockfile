@@ -14,6 +14,7 @@ import tempfile
 import shutil
 import time
 import contextlib
+import subprocess
 
 
 class LockTimeout(Exception):
@@ -361,7 +362,24 @@ class atomic_write_no_lock(object):
         self._temp_filename = None
         self.V = V
 
-        self.target_dir = os.path.dirname(self.filename)
+        # Check for read-only mode - atomic write doesn't make sense for read-only
+        if mode == 'r' or mode == 'rb':
+            raise ValueError('atomic_write_no_lock does not support read-only mode: %r' % mode)
+
+        # Check if the path exists and is not a regular file (or symlink to file)
+        if os.path.exists(self.filename) and not os.path.isfile(self.filename):
+            raise RuntimeError('Works only on files, not %r' % self.filename)
+
+        # Handle symlinks - resolve the target but preserve the symlink
+        self.target_name = self.filename
+        if os.path.islink(self.filename):
+            readlink = os.readlink(self.filename)
+            if os.path.isabs(readlink):
+                self.target_name = readlink
+            else:
+                self.target_name = os.path.join(os.path.dirname(self.filename), readlink)
+
+        self.target_dir = os.path.dirname(self.target_name)
         # Ensure the target directory exists
         #if target_dir and not os.path.exists(target_dir):
         #    os.makedirs(target_dir)
@@ -392,6 +410,34 @@ class atomic_write_no_lock(object):
 
         self._temp_file = tempfile.NamedTemporaryFile(**kwargs)
         self._temp_filename = self._temp_file.name
+
+        # For append mode or update modes, copy existing content to temp file
+        # This applies to: 'a', 'a+', 'r+', 'w+', 'ab', 'a+b', 'r+b', 'w+b'
+        if os.path.exists(self.target_name) and ('+' in self.mode or 'a' in self.mode):
+            # Copy the existing file content to the temporary file using COW when available
+            try:
+                self._temp_file.close()
+                if sys.platform.startswith('win'):
+                    shutil.copy2(self.target_name, self._temp_filename, follow_symlinks=True)
+                else:
+                    # Use cp with --reflink=auto to exploit COW filesystems (btrfs, xfs, etc.)
+                    subprocess.run(["cp", "-p", "--reflink=auto", str(self.target_name), str(self._temp_filename)], check=True)
+
+                # Reopen the temp file in the requested mode
+                self._temp_file = open(self._temp_filename, self.mode,
+                                      buffering=self.buffering,
+                                      encoding=self.encoding if 'b' not in self.mode else None,
+                                      errors=self.errors if 'b' not in self.mode else None,
+                                      newline=self.newline if 'b' not in self.mode else None)
+            except Exception:
+                # Clean up temp file on failure
+                if os.path.exists(self._temp_filename):
+                    try:
+                        os.remove(self._temp_filename)
+                    except Exception:
+                        pass
+                raise
+
         return self._temp_file
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -403,11 +449,12 @@ class atomic_write_no_lock(object):
         # If there was no exception, atomically move the temp file to the target file
         if exc_type is None:
             # On Windows, we may need to remove the destination file first
-            if os.name == 'nt' and os.path.exists(self.filename):
-                os.remove(self.filename)
+            # Rename to target_name (which may be different from filename if it's a symlink)
+            if os.name == 'nt' and os.path.exists(self.target_name):
+                os.remove(self.target_name)
 
-            # Move the temp file to the destination
-            os.rename(self._temp_filename, self.filename)
+            # Move the temp file to the destination (preserves symlink if filename was a symlink)
+            os.rename(self._temp_filename, self.target_name)
         else:
             # If there was an exception, remove the temp file
             if os.path.exists(self._temp_filename):

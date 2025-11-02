@@ -279,7 +279,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
     Process:
     1. Acquire lock on target file (if use_lock=True)
     2. Write content to temporary file (unique temp file in same directory)
-    3. Atomically rename temporary file to target file
+    3. Atomically rename temporary file to target file (preserves symlinks)
     4. Release lock
 
     If any step fails, the temporary file is cleaned up and the original file remains intact.
@@ -299,10 +299,21 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
     Returns:
         None
     """
+    # Resolve symlinks to get the actual target file, but preserve the symlink itself
+    filepath = os.path.abspath(filepath)
+    target_name = filepath
+
+    if os.path.islink(filepath):
+        readlink = os.readlink(filepath)
+        if os.path.isabs(readlink):
+            target_name = readlink
+        else:
+            target_name = os.path.join(os.path.dirname(filepath), readlink)
+
     def _write_and_rename():
         """Inner function that performs the actual write and rename."""
-        # Create a unique temporary file in the same directory to avoid race conditions
-        dir_name = os.path.dirname(filepath) or '.'
+        # Create a unique temporary file in the same directory as the target (not the symlink)
+        dir_name = os.path.dirname(target_name) or '.'
         base_name = os.path.basename(filepath)
 
         # Use tempfile to create a unique temporary file
@@ -311,7 +322,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
         temp_file = None
 
         try:
-            # Create temporary file with unique name
+            # Create temporary file with unique name in target directory
             fd = tempfile.mkstemp(dir=dir_name, prefix=base_name + '_', suffix='.tmp')
             temp_file = fd[1]  # Get the filename
             os.close(fd[0])  # Close the file descriptor
@@ -321,9 +332,10 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
                 f.write(content)
 
             # Atomic rename - on Windows, need to remove destination first
-            if os.name == 'nt' and os.path.exists(filepath):
-                os.remove(filepath)
-            os.rename(temp_file, filepath)
+            # Rename to target_name (preserves symlink if filepath was a symlink)
+            if os.name == 'nt' and os.path.exists(target_name):
+                os.remove(target_name)
+            os.rename(temp_file, target_name)
 
         except Exception:
             # Clean up temporary file on failure

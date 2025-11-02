@@ -358,6 +358,36 @@ class TestAtomicWriteWithLock(unittest.TestCase):
         self.assertEqual(remaining_files, ['target.txt'],
                         f"Only target.txt should remain in subdir, found: {remaining_files}")
 
+    def test_reject_directory(self):
+        """Test that atomic_write_content_with_lock rejects directories."""
+        # Create a directory
+        dir_path = os.path.join(self.test_dir, 'testdir')
+        os.makedirs(dir_path)
+
+        # Should fail when trying to resolve/open directory
+        with self.assertRaises((RuntimeError, OSError, IOError, IsADirectoryError)):
+            atomic_write_content_with_lock(dir_path, "should not work", use_lock=True)
+
+    @unittest.skipIf(sys.platform.startswith('win'), "Unix socket test requires Unix-like system")
+    def test_reject_unix_socket(self):
+        """Test that atomic_write_content_with_lock rejects Unix sockets."""
+        import socket
+
+        # Create a Unix socket
+        socket_path = os.path.join(self.test_dir, 'test.sock')
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.bind(socket_path)
+
+            # Should fail when trying to open socket for writing
+            with self.assertRaises((RuntimeError, OSError, IOError)):
+                atomic_write_content_with_lock(socket_path, "should not work", use_lock=True)
+
+        finally:
+            sock.close()
+            if os.path.exists(socket_path):
+                os.unlink(socket_path)
+
 
 class TestLockExceptions(unittest.TestCase):
     """Test lock exception types."""
@@ -546,6 +576,42 @@ class TestAtomicWriteNoLock(unittest.TestCase):
         remaining_files = os.listdir(subdir)
         self.assertEqual(remaining_files, ['target.txt'],
                         f"Only target.txt should remain in subdir, found: {remaining_files}")
+
+    def test_reject_directory(self):
+        """Test that atomic_write_no_lock rejects directories."""
+        # Create a directory
+        dir_path = os.path.join(self.test_dir, 'testdir')
+        os.makedirs(dir_path)
+
+        # Should raise RuntimeError for directory
+        with self.assertRaises(RuntimeError) as context:
+            with atomic_write_no_lock(dir_path) as f:
+                f.write('should not work')
+
+        self.assertIn('Works only on files', str(context.exception))
+
+    @unittest.skipIf(sys.platform.startswith('win'), "Unix socket test requires Unix-like system")
+    def test_reject_unix_socket(self):
+        """Test that atomic_write_no_lock rejects Unix sockets."""
+        import socket
+
+        # Create a Unix socket
+        socket_path = os.path.join(self.test_dir, 'test.sock')
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.bind(socket_path)
+
+            # Should raise RuntimeError for socket
+            with self.assertRaises(RuntimeError) as context:
+                with atomic_write_no_lock(socket_path) as f:
+                    f.write('should not work')
+
+            self.assertIn('Works only on files', str(context.exception))
+
+        finally:
+            sock.close()
+            if os.path.exists(socket_path):
+                os.unlink(socket_path)
 
 
 class TestAtomicWriteLock(unittest.TestCase):
@@ -772,6 +838,42 @@ class TestAtomicWriteLock(unittest.TestCase):
         remaining_files = os.listdir(subdir)
         self.assertEqual(remaining_files, ['target.txt'],
                         f"Only target.txt should remain in subdir, found: {remaining_files}")
+
+    def test_reject_directory(self):
+        """Test that atomic_write_lock rejects directories."""
+        # Create a directory
+        dir_path = os.path.join(self.test_dir, 'testdir')
+        os.makedirs(dir_path)
+
+        # Should raise RuntimeError for directory
+        with self.assertRaises(RuntimeError) as context:
+            with atomic_write_lock(dir_path) as f:
+                f.write('should not work')
+
+        self.assertIn('Works only on files', str(context.exception))
+
+    @unittest.skipIf(sys.platform.startswith('win'), "Unix socket test requires Unix-like system")
+    def test_reject_unix_socket(self):
+        """Test that atomic_write_lock rejects Unix sockets."""
+        import socket
+
+        # Create a Unix socket
+        socket_path = os.path.join(self.test_dir, 'test.sock')
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            sock.bind(socket_path)
+
+            # Should raise RuntimeError for socket
+            with self.assertRaises(RuntimeError) as context:
+                with atomic_write_lock(socket_path) as f:
+                    f.write('should not work')
+
+            self.assertIn('Works only on files', str(context.exception))
+
+        finally:
+            sock.close()
+            if os.path.exists(socket_path):
+                os.unlink(socket_path)
 
 
 if __name__ == '__main__':

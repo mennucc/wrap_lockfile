@@ -315,6 +315,49 @@ class TestAtomicWriteWithLock(unittest.TestCase):
         # Temp file should not exist (cleanup should happen even on failure)
         self.assertFalse(os.path.exists(temp_file))
 
+    @unittest.skipIf(sys.platform.startswith('win'), "Symlink test requires Unix-like system")
+    def test_atomic_write_symlink_preserved(self):
+        """Test that atomic_write_content_with_lock preserves symlinks."""
+        # Create a subdirectory for the target file
+        subdir = os.path.join(self.test_dir, 'subdir')
+        os.makedirs(subdir)
+
+        # Create the actual target file in the subdirectory
+        target_file = os.path.join(subdir, 'target.txt')
+        with open(target_file, 'w') as f:
+            f.write('original content')
+
+        # Create a symlink in the parent directory pointing to the target
+        symlink_path = os.path.join(self.test_dir, 'symlink.txt')
+        os.symlink(target_file, symlink_path)
+
+        # Verify symlink exists
+        self.assertTrue(os.path.islink(symlink_path))
+        self.assertEqual(os.readlink(symlink_path), target_file)
+
+        # Write through the symlink using atomic_write_content_with_lock
+        atomic_write_content_with_lock(symlink_path, "updated via function", use_lock=True)
+
+        # Verify symlink is still a symlink (not replaced with regular file)
+        self.assertTrue(os.path.islink(symlink_path),
+                       "Symlink should be preserved, not replaced with regular file")
+
+        # Verify symlink still points to the same target
+        self.assertEqual(os.readlink(symlink_path), target_file)
+
+        # Verify content was updated in the target file
+        with open(target_file, 'r') as f:
+            self.assertEqual(f.read(), 'updated via function')
+
+        # Verify reading through symlink works
+        with open(symlink_path, 'r') as f:
+            self.assertEqual(f.read(), 'updated via function')
+
+        # Verify no temp files left in subdirectory
+        remaining_files = os.listdir(subdir)
+        self.assertEqual(remaining_files, ['target.txt'],
+                        f"Only target.txt should remain in subdir, found: {remaining_files}")
+
 
 class TestLockExceptions(unittest.TestCase):
     """Test lock exception types."""

@@ -278,7 +278,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
 
     Process:
     1. Acquire lock on target file (if use_lock=True)
-    2. Write content to temporary file (filepath + temp_suffix)
+    2. Write content to temporary file (unique temp file in same directory)
     3. Atomically rename temporary file to target file
     4. Release lock
 
@@ -289,7 +289,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
         content (str or bytes): Content to write to the file
         use_lock (bool): Whether to use file locking (default: True)
         timeout (float): Lock timeout in seconds (None = wait indefinitely)
-        temp_suffix (str): Suffix for temporary file (default: '~~')
+        temp_suffix (str): Suffix for temporary file (default: '~~', deprecated - now uses unique names)
 
     Raises:
         LockTimeout: If lock cannot be acquired within timeout
@@ -299,13 +299,24 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
     Returns:
         None
     """
-    temp_file = filepath + temp_suffix
-
     def _write_and_rename():
         """Inner function that performs the actual write and rename."""
+        # Create a unique temporary file in the same directory to avoid race conditions
+        dir_name = os.path.dirname(filepath) or '.'
+        base_name = os.path.basename(filepath)
+
+        # Use tempfile to create a unique temporary file
+        mode = 'wb' if isinstance(content, bytes) else 'w'
+        fd = None
+        temp_file = None
+
         try:
+            # Create temporary file with unique name
+            fd = tempfile.mkstemp(dir=dir_name, prefix=base_name + '_', suffix='.tmp')
+            temp_file = fd[1]  # Get the filename
+            os.close(fd[0])  # Close the file descriptor
+
             # Write to temporary file
-            mode = 'wb' if isinstance(content, bytes) else 'w'
             with open(temp_file, mode) as f:
                 f.write(content)
 
@@ -316,7 +327,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
 
         except Exception:
             # Clean up temporary file on failure
-            if os.path.exists(temp_file):
+            if temp_file and os.path.exists(temp_file):
                 try:
                     os.unlink(temp_file)
                 except Exception:

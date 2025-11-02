@@ -26,6 +26,7 @@ pip install lockfile
 - ✅ **Cross-platform**: Works on Linux, macOS, Windows
 - ✅ **Automatic fallback**: Intelligently selects best locking mechanism
 - ✅ **Atomic writes**: Write-to-temp-then-rename pattern prevents corruption
+- ✅ **Symlink preservation**: Symlinks are preserved, not replaced with regular files
 - ✅ **Context managers**: Clean, Pythonic API with `with` statements
 - ✅ **Lock timeout support**: Configurable timeout for lock acquisition
 - ✅ **Thread-safe**: Properly serializes concurrent writes
@@ -102,7 +103,7 @@ atomic_write_content_with_lock(
 
 **How it works:**
 1. Acquires lock on target file (if `use_lock=True`)
-2. Writes content to temporary file (`filepath + temp_suffix`)
+2. Writes content to unique temporary file in target directory
 3. Atomically renames temporary file to target file
 4. Releases lock
 
@@ -110,6 +111,7 @@ atomic_write_content_with_lock(
 - Original file remains intact if any step fails
 - Temporary files are cleaned up on errors
 - Windows-compatible (handles `os.rename()` limitations)
+- **Symlinks are preserved**: If `filepath` is a symlink, the target file is updated but the symlink itself remains unchanged
 
 ---
 
@@ -141,6 +143,10 @@ with atomic_write_no_lock('/path/to/file.txt', encoding='utf-8') as f:
 - `filename` (str): Path to file
 - `mode` (str): File mode (`'w'`, `'wb'`, etc.)
 - `buffering`, `encoding`, `errors`, `newline`: Standard `open()` parameters
+
+**Special behavior:**
+- **Symlink preservation**: If `filename` is a symlink, the symlink is preserved and only the target file content is updated
+- **Append/update modes**: For modes containing `'a'` or `'+'`, existing file content is copied to the temp file first using copy-on-write when available
 
 **Use cases:**
 - Single-threaded applications
@@ -174,6 +180,10 @@ with atomic_write_lock('/path/to/file.bin', mode='wb', lock_timeout=10) as f:
 - `mode` (str): File mode
 - `lock_timeout` (float, optional): Lock acquisition timeout in seconds
 - Other parameters: Same as `open()`
+
+**Special behavior:**
+- **Symlink preservation**: If `filename` is a symlink, the symlink is preserved and only the target file content is updated
+- **Append/update modes**: For modes containing `'a'` or `'+'`, existing file content is copied to the temp file first using copy-on-write when available
 
 **Use cases:**
 - Multi-threaded applications
@@ -361,6 +371,37 @@ def update_with_retry(filepath, content, max_retries=3):
     return False
 
 update_with_retry('/tmp/data.txt', 'New content')
+```
+
+### Example 6: Working with Symlinks
+
+```python
+from wrap_lockfile import atomic_write_lock
+import os
+
+# Create a target file in a subdirectory
+os.makedirs('/data/configs', exist_ok=True)
+with open('/data/configs/app.conf', 'w') as f:
+    f.write('debug=false\n')
+
+# Create a symlink in a different location
+os.symlink('/data/configs/app.conf', '/etc/app.conf')
+
+# Update through the symlink - symlink is preserved!
+with atomic_write_lock('/etc/app.conf') as f:
+    f.write('debug=true\n')
+    f.write('verbose=true\n')
+
+# The symlink still exists and points to the same target
+assert os.path.islink('/etc/app.conf')
+assert os.readlink('/etc/app.conf') == '/data/configs/app.conf'
+
+# The target file was updated
+with open('/data/configs/app.conf', 'r') as f:
+    print(f.read())  # Shows: debug=true\nverbose=true\n
+
+# Temporary files are created in the target directory (/data/configs)
+# not in the symlink directory (/etc), avoiding cross-filesystem issues
 ```
 
 ---

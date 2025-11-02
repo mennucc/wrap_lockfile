@@ -417,7 +417,7 @@ class atomic_write_no_lock(object):
         return False
 
 
-class atomic_write_lock(object):
+class atomic_write_lock(atomic_write_no_lock):
     """Context manager for atomically writing to a file WITH file locking.
 
     Usage:
@@ -438,20 +438,12 @@ class atomic_write_lock(object):
                 Same parameters as built-in open() function
             lock_timeout: Timeout for lock acquisition (None = wait indefinitely)
         """
-        self.filename = os.path.abspath(filename)
-        self.mode = mode
-        self.buffering = buffering
-        self.encoding = encoding
-        self.errors = errors
-        self.newline = newline
-        self.closefd = closefd
-        self.lock_timeout = lock_timeout
-        self._temp_file = None
-        self._temp_filename = None
-        self._lock = None
-        self.V = V
+        # Call parent constructor
+        super().__init__(filename, mode=mode, buffering=buffering, encoding=encoding,
+                        errors=errors, newline=newline, closefd=closefd, **V)
 
-        self.target_dir = os.path.dirname(self.filename)
+        self.lock_timeout = lock_timeout
+        self._lock = None
 
     def __enter__(self):
         """Acquire lock and create temporary file for writing."""
@@ -460,31 +452,8 @@ class atomic_write_lock(object):
         self._lock.__enter__()
 
         try:
-            # Create a temporary file in the same directory as the target file
-            D = self.target_dir
-
-            # Build kwargs - don't pass encoding parameters in binary mode
-            kwargs = {
-                'mode': self.mode,
-                'buffering': self.buffering,
-                'delete': False,
-                'dir': D if D else '.',
-                'prefix': os.path.basename(self.filename) + '_',
-                'suffix': '.tmp'
-            }
-
-            # Only add text-mode parameters if not in binary mode
-            if 'b' not in self.mode:
-                kwargs['encoding'] = self.encoding
-                kwargs['errors'] = self.errors
-                kwargs['newline'] = self.newline
-
-            # Merge in any additional kwargs from **V
-            kwargs.update(self.V)
-
-            self._temp_file = tempfile.NamedTemporaryFile(**kwargs)
-            self._temp_filename = self._temp_file.name
-            return self._temp_file
+            # Call parent's __enter__ to create the temporary file
+            return super().__enter__()
         except Exception:
             # If temp file creation fails, release the lock
             if self._lock:
@@ -497,22 +466,8 @@ class atomic_write_lock(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Close temp file, move to target if successful, and release lock."""
         try:
-            # Always close the file
-            if self._temp_file:
-                self._temp_file.close()
-
-            # If there was no exception, atomically move the temp file to the target file
-            if exc_type is None:
-                # On Windows, we may need to remove the destination file first
-                if os.name == 'nt' and os.path.exists(self.filename):
-                    os.remove(self.filename)
-
-                # Move the temp file to the destination
-                os.rename(self._temp_filename, self.filename)
-            else:
-                # If there was an exception, remove the temp file
-                if os.path.exists(self._temp_filename):
-                    os.remove(self._temp_filename)
+            # Call parent's __exit__ to handle file operations
+            super().__exit__(exc_type, exc_val, exc_tb)
         finally:
             # Always release the lock by calling mylockfile's __exit__
             if self._lock:

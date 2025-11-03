@@ -1,2 +1,2 @@
 #!/bin/bash
-python -m pytest unittests/test_wrap_lockfile.py
+python3 unittests/test_wrap_lockfile.py

@@ -148,7 +148,7 @@ with atomic_write_no_lock('/path/to/file.txt', encoding='utf-8') as f:
 
 **Special behavior:**
 - **Symlink preservation**: If `filename` is a symlink, the symlink is preserved and only the target file content is updated
-- **Append/update modes**: For modes containing `'a'` or `'+'`, existing file content is copied to the temp file first using copy-on-write when available
+- **Append/update modes**: For modes containing `'a'` or `'+'`, existing file content is copied to the temp file first, using copy-on-write when available
 - **Permission preservation**: File permissions (mode) are preserved from the original file
 
 **Use cases:**

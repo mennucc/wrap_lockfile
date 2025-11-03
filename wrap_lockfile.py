@@ -16,6 +16,9 @@ import time
 import contextlib
 import subprocess
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class LockTimeout(Exception):
     """Exception raised when lock acquisition times out."""
@@ -336,6 +339,15 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
             with open(temp_file, mode) as f:
                 f.write(content)
 
+            # Preserve file permissions if the target file existed
+            if os.path.exists(target_name):
+                try:
+                    original_stat = os.stat(target_name)
+                    os.chmod(temp_file, original_stat.st_mode)
+                except (OSError, IOError) as E:
+                    # If permission copy fails, continue anyway
+                    logger.error(f'Could not preserve permission {original_stat.st_mode} for {target_name} : {E}')
+
             # Atomic rename - on Windows, need to remove destination first
             # Rename to target_name (preserves symlink if filepath was a symlink)
             if os.name == 'nt' and os.path.exists(target_name):
@@ -476,6 +488,15 @@ class atomic_write_no_lock(object):
 
         # If there was no exception, atomically move the temp file to the target file
         if exc_type is None:
+            # Preserve file permissions if the target file existed
+            if os.path.exists(self.target_name):
+                try:
+                    original_stat = os.stat(self.target_name)
+                    os.chmod(self._temp_filename, original_stat.st_mode)
+                except (OSError, IOError) as E:
+                    # If permission copy fails, continue anyway
+                    logger.error(f'Could not preserve permission {original_stat.st_mode} for {self.target_name} : {E}')
+
             # On Windows, we may need to remove the destination file first
             # Rename to target_name (which may be different from filename if it's a symlink)
             if os.name == 'nt' and os.path.exists(self.target_name):

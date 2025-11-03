@@ -388,6 +388,44 @@ class TestAtomicWriteWithLock(unittest.TestCase):
             if os.path.exists(socket_path):
                 os.unlink(socket_path)
 
+    @unittest.skipIf(sys.platform.startswith('win'), "File permissions test requires Unix-like system")
+    def test_preserves_permissions_string_content(self):
+        """Test that atomic_write_content_with_lock preserves file permissions with string content."""
+        # Create a file with specific permissions
+        with open(self.test_file, 'w') as f:
+            f.write('initial content')
+
+        # Set specific permissions (e.g., 0o644 - rw-r--r--)
+        os.chmod(self.test_file, 0o644)
+        original_mode = os.stat(self.test_file).st_mode
+
+        # Write using atomic_write_content_with_lock
+        atomic_write_content_with_lock(self.test_file, 'updated content', use_lock=True)
+
+        # Check that permissions are preserved
+        new_mode = os.stat(self.test_file).st_mode
+        self.assertEqual(original_mode, new_mode,
+                        f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
+
+    @unittest.skipIf(sys.platform.startswith('win'), "File permissions test requires Unix-like system")
+    def test_preserves_permissions_binary_content(self):
+        """Test that atomic_write_content_with_lock preserves file permissions with binary content."""
+        # Create a file with specific permissions
+        with open(self.test_file, 'wb') as f:
+            f.write(b'initial binary content')
+
+        # Set specific permissions (e.g., 0o600 - rw-------)
+        os.chmod(self.test_file, 0o600)
+        original_mode = os.stat(self.test_file).st_mode
+
+        # Write using atomic_write_content_with_lock with binary content
+        atomic_write_content_with_lock(self.test_file, b'updated binary content', use_lock=True)
+
+        # Check that permissions are preserved
+        new_mode = os.stat(self.test_file).st_mode
+        self.assertEqual(original_mode, new_mode,
+                        f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
+
 
 class TestLockExceptions(unittest.TestCase):
     """Test lock exception types."""
@@ -612,6 +650,52 @@ class TestAtomicWriteNoLock(unittest.TestCase):
             sock.close()
             if os.path.exists(socket_path):
                 os.unlink(socket_path)
+
+    @unittest.skipIf(sys.platform.startswith('win'), "File permissions test requires Unix-like system")
+    def test_preserves_permissions_mode_w(self):
+        """Test that atomic_write_no_lock preserves file permissions with mode='w'."""
+        # Create a file with specific permissions
+        with open(self.test_file, 'w') as f:
+            f.write('initial content')
+
+        # Set specific permissions (e.g., 0o644 - rw-r--r--)
+        os.chmod(self.test_file, 0o644)
+        original_mode = os.stat(self.test_file).st_mode
+
+        # Write using atomic_write_no_lock with mode='w'
+        with atomic_write_no_lock(self.test_file, mode='w') as f:
+            f.write('updated content')
+
+        # Check that permissions are preserved
+        new_mode = os.stat(self.test_file).st_mode
+        self.assertEqual(original_mode, new_mode,
+                        f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
+
+    @unittest.skipIf(sys.platform.startswith('win'), "File permissions test requires Unix-like system")
+    def test_preserves_permissions_mode_a(self):
+        """Test that atomic_write_no_lock preserves file permissions with mode='a'."""
+        # Create a file with specific permissions
+        with open(self.test_file, 'w') as f:
+            f.write('initial content\n')
+
+        # Set specific permissions (e.g., 0o600 - rw-------)
+        os.chmod(self.test_file, 0o600)
+        original_mode = os.stat(self.test_file).st_mode
+
+        # Write using atomic_write_no_lock with mode='a' (uses copy path)
+        with atomic_write_no_lock(self.test_file, mode='a') as f:
+            f.write('appended content\n')
+
+        # Check that permissions are preserved
+        new_mode = os.stat(self.test_file).st_mode
+        self.assertEqual(original_mode, new_mode,
+                        f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
+
+        # Verify content was actually appended
+        with open(self.test_file, 'r') as f:
+            content = f.read()
+            self.assertIn('initial content', content)
+            self.assertIn('appended content', content)
 
 
 class TestAtomicWriteLock(unittest.TestCase):
@@ -874,6 +958,52 @@ class TestAtomicWriteLock(unittest.TestCase):
             sock.close()
             if os.path.exists(socket_path):
                 os.unlink(socket_path)
+
+    @unittest.skipIf(sys.platform.startswith('win'), "File permissions test requires Unix-like system")
+    def test_preserves_permissions_mode_w(self):
+        """Test that atomic_write_lock preserves file permissions with mode='w'."""
+        # Create a file with specific permissions
+        with open(self.test_file, 'w') as f:
+            f.write('initial content')
+
+        # Set specific permissions (e.g., 0o644 - rw-r--r--)
+        os.chmod(self.test_file, 0o644)
+        original_mode = os.stat(self.test_file).st_mode
+
+        # Write using atomic_write_lock with mode='w'
+        with atomic_write_lock(self.test_file, mode='w') as f:
+            f.write('updated content')
+
+        # Check that permissions are preserved
+        new_mode = os.stat(self.test_file).st_mode
+        self.assertEqual(original_mode, new_mode,
+                        f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
+
+    @unittest.skipIf(sys.platform.startswith('win'), "File permissions test requires Unix-like system")
+    def test_preserves_permissions_mode_a(self):
+        """Test that atomic_write_lock preserves file permissions with mode='a'."""
+        # Create a file with specific permissions
+        with open(self.test_file, 'w') as f:
+            f.write('initial content\n')
+
+        # Set specific permissions (e.g., 0o600 - rw-------)
+        os.chmod(self.test_file, 0o600)
+        original_mode = os.stat(self.test_file).st_mode
+
+        # Write using atomic_write_lock with mode='a' (uses copy path)
+        with atomic_write_lock(self.test_file, mode='a') as f:
+            f.write('appended content\n')
+
+        # Check that permissions are preserved
+        new_mode = os.stat(self.test_file).st_mode
+        self.assertEqual(original_mode, new_mode,
+                        f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
+
+        # Verify content was actually appended
+        with open(self.test_file, 'r') as f:
+            content = f.read()
+            self.assertIn('initial content', content)
+            self.assertIn('appended content', content)
 
 
 if __name__ == '__main__':

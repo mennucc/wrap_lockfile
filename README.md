@@ -27,6 +27,7 @@ pip install lockfile
 - ✅ **Automatic fallback**: Intelligently selects best locking mechanism
 - ✅ **Atomic writes**: Write-to-temp-then-rename pattern prevents corruption
 - ✅ **Symlink preservation**: Symlinks are preserved, not replaced with regular files
+- ✅ **Permission preservation**: File permissions are maintained across writes
 - ✅ **Context managers**: Clean, Pythonic API with `with` statements
 - ✅ **Lock timeout support**: Configurable timeout for lock acquisition
 - ✅ **Thread-safe**: Properly serializes concurrent writes
@@ -112,6 +113,7 @@ atomic_write_content_with_lock(
 - Temporary files are cleaned up on errors
 - Windows-compatible (handles `os.rename()` limitations)
 - **Symlinks are preserved**: If `filepath` is a symlink, the target file is updated but the symlink itself remains unchanged
+- **Permissions are preserved**: File permissions (mode) are copied from the original file to the new file
 
 ---
 
@@ -147,6 +149,7 @@ with atomic_write_no_lock('/path/to/file.txt', encoding='utf-8') as f:
 **Special behavior:**
 - **Symlink preservation**: If `filename` is a symlink, the symlink is preserved and only the target file content is updated
 - **Append/update modes**: For modes containing `'a'` or `'+'`, existing file content is copied to the temp file first using copy-on-write when available
+- **Permission preservation**: File permissions (mode) are preserved from the original file
 
 **Use cases:**
 - Single-threaded applications
@@ -184,6 +187,7 @@ with atomic_write_lock('/path/to/file.bin', mode='wb', lock_timeout=10) as f:
 **Special behavior:**
 - **Symlink preservation**: If `filename` is a symlink, the symlink is preserved and only the target file content is updated
 - **Append/update modes**: For modes containing `'a'` or `'+'`, existing file content is copied to the temp file first using copy-on-write when available
+- **Permission preservation**: File permissions (mode) are preserved from the original file
 
 **Use cases:**
 - Multi-threaded applications

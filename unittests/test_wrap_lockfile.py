@@ -426,6 +426,26 @@ class TestAtomicWriteWithLock(unittest.TestCase):
         self.assertEqual(original_mode, new_mode,
                         f"File permissions changed from {oct(original_mode)} to {oct(new_mode)}")
 
+    def test_append_mode_not_supported(self):
+        """Test that atomic_write_content_with_lock does not support append mode (it's a simple content replacement function)."""
+        # Note: atomic_write_content_with_lock is designed to replace file content,
+        # not append to it. For append operations, use atomic_write_no_lock or
+        # atomic_write_lock with mode='a'.
+
+        # This test documents the expected behavior
+        with open(self.test_file, 'w') as f:
+            f.write('initial content')
+
+        # atomic_write_content_with_lock replaces content (no append mode parameter)
+        atomic_write_content_with_lock(self.test_file, 'new content', use_lock=True)
+
+        with open(self.test_file, 'r') as f:
+            content = f.read()
+
+        # Content is replaced, not appended
+        self.assertEqual(content, 'new content')
+        self.assertNotIn('initial content', content)
+
 
 class TestLockExceptions(unittest.TestCase):
     """Test lock exception types."""

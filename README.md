@@ -226,18 +226,18 @@ Raised when lock acquisition fails for reasons other than timeout or existing lo
 
 ### Advanced Usage
 
-#### `mylockfile_other_exceptions`
+#### `mylockfile_exceptions`
 
 Tuple of all possible lock-related exceptions. Useful for broad exception handling:
 
 ```python
-from wrap_lockfile import mylockfile, mylockfile_other_exceptions
+from wrap_lockfile import mylockfile, mylockfile_exceptions
 
 try:
     with mylockfile('/path/to/file.txt', timeout=5):
         # Do work
         pass
-except mylockfile_other_exceptions as e:
+except mylockfile_exceptions as e:
     print(f"Lock failed: {e}")
 ```
 
@@ -350,7 +350,7 @@ compress_and_save(data, '/tmp/output.gz')
 ### Example 5: Graceful Lock Timeout Handling
 
 ```python
-from wrap_lockfile import mylockfile, LockTimeout, mylockfile_other_exceptions
+from wrap_lockfile import mylockfile, LockTimeout, mylockfile_exceptions
 import time
 
 def update_with_retry(filepath, content, max_retries=3):
@@ -367,7 +367,7 @@ def update_with_retry(filepath, content, max_retries=3):
             print(f"Lock timeout, retry {attempt + 1}/{max_retries}")
             time.sleep(1)
 
-        except mylockfile_other_exceptions as e:
+        except mylockfile_exceptions as e:
             print(f"Lock failed: {e}")
             return False
 
@@ -474,13 +474,13 @@ python -m pytest test_wrap_lockfile.py -v
 
 3. **Handle lock exceptions**
    ```python
-   from wrap_lockfile import mylockfile, mylockfile_other_exceptions
+   from wrap_lockfile import mylockfile, mylockfile_exceptions
 
    try:
        with mylockfile('file.txt', timeout=5):
            # Do work
            pass
-   except mylockfile_other_exceptions as e:
+   except mylockfile_exceptions as e:
        # Handle lock failure
        logger.error(f"Could not acquire lock: {e}")
    ```

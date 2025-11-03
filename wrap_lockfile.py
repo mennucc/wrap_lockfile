@@ -41,7 +41,7 @@ def mylockfile(fil, timeout=None):
     return contextlib.nullcontext()
 
 myLockTimeout = LockTimeout
-mylockfile_other_exceptions = ()
+mylockfile_exceptions = ()
 
 
 # Try to import the lockfile library
@@ -50,7 +50,7 @@ try:
     # Use the real lockfile library
     mylockfile = lockfile.FileLock
     myLockTimeout = lockfile.LockTimeout
-    mylockfile_other_exceptions = (
+    mylockfile_exceptions = (
         lockfile.LockTimeout,
         lockfile.AlreadyLocked,
         lockfile.LockFailed
@@ -260,15 +260,15 @@ if lockfile is None:
         # Use Windows-specific msvcrt implementation
         mylockfile = msvcrtFileLock
         myLockTimeout = LockTimeout
-        mylockfile_other_exceptions = (LockTimeout, AlreadyLocked, LockFailed)
+        mylockfile_exceptions = (LockTimeout, AlreadyLocked, LockFailed)
     elif HAVE_FCNTL:
         # Use Unix/Linux fcntl-based implementation
         mylockfile = FcntlFileLock
         myLockTimeout = LockTimeout
-        mylockfile_other_exceptions = (LockTimeout, AlreadyLocked, LockFailed)
+        mylockfile_exceptions = (LockTimeout, AlreadyLocked, LockFailed)
     else:
         # No locking available - keep no-op implementation
-        # mylockfile, myLockTimeout, mylockfile_other_exceptions already set above
+        # mylockfile, myLockTimeout, mylockfile_exceptions already set above
         pass
 
 

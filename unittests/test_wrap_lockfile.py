@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from wrap_lockfile import (
     mylockfile,
     myLockTimeout,
-    mylockfile_other_exceptions,
+    mylockfile_exceptions,
     atomic_write_content_with_lock,
     atomic_write_no_lock,
     atomic_write_lock,
@@ -463,9 +463,9 @@ class TestLockExceptions(unittest.TestCase):
         self.assertTrue(issubclass(AlreadyLocked, Exception))
         self.assertTrue(issubclass(LockFailed, Exception))
 
-    def test_mylockfile_other_exceptions_is_tuple(self):
-        """Test that mylockfile_other_exceptions is a tuple."""
-        self.assertIsInstance(mylockfile_other_exceptions, tuple)
+    def test_mylockfile_exceptions_is_tuple(self):
+        """Test that mylockfile_exceptions is a tuple."""
+        self.assertIsInstance(mylockfile_exceptions, tuple)
 
 
 class TestMyLockfileInterface(unittest.TestCase):

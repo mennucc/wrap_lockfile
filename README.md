@@ -70,7 +70,7 @@ with mylockfile('/path/to/file.txt', timeout=5):
 
 ### Atomic File Writing
 
-#### `atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=None, temp_suffix='~~')`
+#### `atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=None, temp_suffix='.tmp')`
 
 Write content to a file atomically with optional locking. Uses write-to-temp-then-rename pattern.
 
@@ -91,7 +91,7 @@ atomic_write_content_with_lock(
     '/path/to/file.txt',
     'content',
     timeout=10,
-    temp_suffix='.tmp'
+    temp_suffix='.temporary'
 )
 ```
 
@@ -100,7 +100,7 @@ atomic_write_content_with_lock(
 - `content` (str or bytes): Content to write
 - `use_lock` (bool): Whether to use file locking (default: `True`)
 - `timeout` (float, optional): Lock timeout in seconds
-- `temp_suffix` (str): Suffix for temporary file (default: `'~~'`)
+- `temp_suffix` (str): Suffix for temporary file (default: `'.tmp'`)
 
 **How it works:**
 1. Acquires lock on target file (if `use_lock=True`)

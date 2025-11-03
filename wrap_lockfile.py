@@ -272,7 +272,7 @@ if lockfile is None:
         pass
 
 
-def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=None, temp_suffix='~~'):
+def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=None, temp_suffix='.tmp'):
     """
     Atomically write content to a file with optional locking.
 
@@ -292,7 +292,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
         content (str or bytes): Content to write to the file
         use_lock (bool): Whether to use file locking (default: True)
         timeout (float): Lock timeout in seconds (None = wait indefinitely)
-        temp_suffix (str): Suffix for temporary file (default: '~~', deprecated - now uses unique names)
+        temp_suffix (str): Suffix for temporary file (default: '.tmp')
 
     Raises:
         LockTimeout: If lock cannot be acquired within timeout
@@ -331,7 +331,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
 
         try:
             # Create temporary file with unique name in target directory
-            fd = tempfile.mkstemp(dir=dir_name, prefix=base_name + '_', suffix='.tmp')
+            fd = tempfile.mkstemp(dir=dir_name, prefix=base_name + '_', suffix=temp_suffix)
             temp_file = fd[1]  # Get the filename
             os.close(fd[0])  # Close the file descriptor
 

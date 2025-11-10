@@ -15,6 +15,7 @@ import shutil
 import time
 import contextlib
 import subprocess
+import re
 
 import logging
 logger = logging.getLogger(__name__)

@@ -20,6 +20,29 @@ import re
 import logging
 logger = logging.getLogger(__name__)
 
+CP_HAS_REFLINK = None
+
+try:
+    if sys.platform.startswith('linux'):
+        # Check for GNU coreutils --reflink support
+        p = subprocess.run(["cp", "--help"], capture_output=True, text=True)
+        output = p.stdout + p.stderr
+        if '--reflink' in output:
+            CP_HAS_REFLINK = '--reflink=auto'
+    elif sys.platform.startswith('darwin'):
+        # macOS uses -c for APFS clonefile (macOS 10.13+)
+        p = subprocess.run(["cp", "--help"], capture_output=True, text=True)
+        output = p.stdout + p.stderr
+        if '-c' in output or 'clonefile' in output:
+            CP_HAS_REFLINK = '-c'
+    # FreeBSD, OpenBSD, NetBSD, and other BSDs don't have direct cp equivalents
+    # so CP_HAS_REFLINK remains None
+    # Similarly for MS Windows
+except Exception as e:
+    sys.stderr.write('(wrap_lockfile failed when detecting copy-on-write support)\n')
+
+
+
 
 class LockTimeout(Exception):
     """Exception raised when lock acquisition times out."""
@@ -456,11 +479,11 @@ class atomic_write_no_lock(object):
             # Copy the existing file content to the temporary file using COW when available
             try:
                 self._temp_file.close()
-                if sys.platform.startswith('win'):
+                if not CP_HAS_REFLINK:
                     shutil.copy2(self.target_name, self._temp_filename, follow_symlinks=True)
                 else:
                     # Use cp with --reflink=auto to exploit COW filesystems (btrfs, xfs, etc.)
-                    subprocess.run(["cp", "-p", "--reflink=auto", str(self.target_name), str(self._temp_filename)], check=True)
+                    subprocess.run(["cp", "-p", CP_HAS_REFLINK, str(self.target_name), str(self._temp_filename)], check=True)
 
                 # Reopen the temp file in the requested mode
                 self._temp_file = open(self._temp_filename, self.mode,

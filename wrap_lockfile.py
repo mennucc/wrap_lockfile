@@ -389,6 +389,7 @@ class atomic_write_no_lock(object):
                 Same parameters as built-in open() function
         """
         self.filename = os.path.abspath(filename)
+        assert ( isinstance(mode,str) and re.fullmatch(r'[rwa](\+)?b?', mode) ) , f"Invalid file mode: {mode!r}"
         self.mode = mode
         self.buffering = buffering
         self.encoding = encoding

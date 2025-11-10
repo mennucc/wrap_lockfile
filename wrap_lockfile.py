@@ -348,11 +348,8 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
                     # If permission copy fails, continue anyway
                     logger.error(f'Could not preserve permission {original_stat.st_mode} for {target_name} : {E}')
 
-            # Atomic rename - on Windows, need to remove destination first
-            # Rename to target_name (preserves symlink if filepath was a symlink)
-            if os.name == 'nt' and os.path.exists(target_name):
-                os.remove(target_name)
-            os.rename(temp_file, target_name)
+            # Atomic replace keeps the write single-step across platforms
+            os.replace(temp_file, target_name)
 
         except Exception:
             # Clean up temporary file on failure
@@ -497,13 +494,8 @@ class atomic_write_no_lock(object):
                     # If permission copy fails, continue anyway
                     logger.error(f'Could not preserve permission {original_stat.st_mode} for {self.target_name} : {E}')
 
-            # On Windows, we may need to remove the destination file first
-            # Rename to target_name (which may be different from filename if it's a symlink)
-            if os.name == 'nt' and os.path.exists(self.target_name):
-                os.remove(self.target_name)
-
             # Move the temp file to the destination (preserves symlink if filename was a symlink)
-            os.rename(self._temp_filename, self.target_name)
+            os.replace(self._temp_filename, self.target_name)
         else:
             # If there was an exception, remove the temp file
             if os.path.exists(self._temp_filename):

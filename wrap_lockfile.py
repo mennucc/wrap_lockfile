@@ -16,6 +16,7 @@ import time
 import contextlib
 import subprocess
 import re
+from threading import local
 
 import logging
 logger = logging.getLogger(__name__)
@@ -95,7 +96,7 @@ except ImportError:
 if HAVE_FCNTL:
     import time
 
-    class FcntlFileLock:
+    class FcntlFileLock(local):
         """
         File locking implementation using fcntl.flock.
 
@@ -189,7 +190,7 @@ except ImportError:
 
 if msvcrt and sys.platform.startswith('win'):
     # On Windows, use msvcrt.locking
-    class msvcrtFileLock:
+    class msvcrtFileLock(local):
         """
         File locking implementation using msvcrt.locking.
 

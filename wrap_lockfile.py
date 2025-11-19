@@ -520,6 +520,13 @@ class atomic_write_no_lock(object):
                 )
             if not os.path.isfile(self.filename):
                 raise RuntimeError('Works only on files, not %r' % self.filename)
+        elif self.mode_behaviour.must_exist:
+            # this triggers also on dangling symlinks
+            raise FileNotFoundError(
+                errno.ENOENT,
+                os.strerror(errno.ENOENT),
+                self.filename,
+            )
 
         # Handle symlinks - resolve the target but preserve the symlink
         self.target_name = self.filename

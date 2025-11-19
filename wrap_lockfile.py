@@ -501,6 +501,7 @@ class atomic_write_no_lock(object):
         self._temp_file = None
         self._temp_filename = None
         self.V = V
+        self.st_mode = None
 
     def __enter__(self):
         """Create and open a temporary file for writing."""
@@ -528,6 +529,15 @@ class atomic_write_no_lock(object):
                 self.target_name = readlink
             else:
                 self.target_name = os.path.join(os.path.dirname(self.filename), readlink)
+
+
+        if os.path.exists(self.target_name):
+            try:
+                original_stat = os.stat(self.target_name)
+                self.st_mode = original_stat.st_mode
+            except (OSError, IOError) as E:
+                # If permission copy fails, continue anyway
+                logger.error(f'Could not read permission for {self.target_name} : {E}')
 
         self.target_dir = os.path.dirname(self.target_name)
         # Ensure the target directory exists
@@ -602,6 +612,9 @@ class atomic_write_no_lock(object):
                 try:
                     original_stat = os.stat(self.target_name)
                     st_mode = original_stat.st_mode
+                    if st_mode != self.st_mode:
+                        logger.warning('File %r mode changed during writing, from %s to %s ',
+                                       self.target_name, self.st_mode, st_mode)
                     os.chmod(self._temp_filename, st_mode)
                 except (OSError, IOError) as E:
                     # If permission copy fails, continue anyway

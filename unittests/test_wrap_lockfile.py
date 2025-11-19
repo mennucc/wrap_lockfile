@@ -1035,6 +1035,96 @@ class TestAtomicWriteLock(unittest.TestCase):
             self.assertIn('initial content', content)
             self.assertIn('appended content', content)
 
+    @unittest.skipIf(sys.platform.startswith('win'), "Requires Unix-style symlinks and permissions")
+    def test_modes_through_readonly_symlink(self):
+        """Test various modes when writing through a symlink inside a read-only directory."""
+        ro_dir = os.path.join(self.test_dir, 'RO')
+        rw_dir = os.path.join(self.test_dir, 'RW')
+        os.makedirs(ro_dir)
+        os.makedirs(rw_dir)
+
+        symlink_path = os.path.join(ro_dir, 'symlink')
+        target_path = os.path.join(rw_dir, 'afile')
+        # Use a relative link so the RO directory never needs to be writable
+        os.symlink(os.path.join('..', 'RW', 'afile'), symlink_path)
+
+        os.chmod(ro_dir, 0o555)
+        try:
+            if os.path.exists(target_path):
+                os.unlink(target_path)
+
+            # Mode 'w' should create the target even though the symlink's parent is read-only.
+            with atomic_write_lock(symlink_path, mode='w') as f:
+                f.write('alpha')
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'alpha')
+
+            # Mode 'w+' should truncate and allow reading.
+            with atomic_write_lock(symlink_path, mode='w+') as f:
+                f.write('omega')
+                f.seek(0)
+                self.assertEqual(f.read(), 'omega')
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'omega')
+
+            # Mode 'a' appends when the target exists.
+            with atomic_write_lock(symlink_path, mode='a') as f:
+                f.write('\nbeta')
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'omega\nbeta')
+
+            # Mode 'r+' reads existing content and can rewrite it.
+            with atomic_write_lock(symlink_path, mode='r+') as f:
+                self.assertEqual(f.read(), 'omega\nbeta')
+                f.seek(0)
+                f.write('gamma')
+                f.truncate()
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'gamma')
+
+            # Removing the target makes 'r+' fail with FileNotFoundError.
+            os.unlink(target_path)
+            with self.assertRaises(FileNotFoundError):
+                with atomic_write_lock(symlink_path, mode='r+'):
+                    pass
+
+            # Mode 'a' should recreate the missing target.
+            with atomic_write_lock(symlink_path, mode='a') as f:
+                f.write('delta')
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'delta')
+
+            # Exclusive modes behave like built-in open: succeed once when the
+            # target does not exist and fail subsequently.
+            os.unlink(target_path)
+            with atomic_write_lock(target_path, mode='x') as f:
+                f.write('epsilon')
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'epsilon')
+            with self.assertRaises(FileExistsError):
+                with atomic_write_lock(target_path, mode='x'):
+                    pass
+
+            os.unlink(target_path)
+            with atomic_write_lock(target_path, mode='x+') as f:
+                f.write('zeta')
+                f.seek(0)
+                self.assertEqual(f.read(), 'zeta')
+            with open(target_path, 'r') as f:
+                self.assertEqual(f.read(), 'zeta')
+            with self.assertRaises(FileExistsError):
+                with atomic_write_lock(target_path, mode='x+'):
+                    pass
+
+            # Calling through the symlink should fail for exclusive modes,
+            # because the symlink path itself already exists.
+            for exclusive_mode in ('x', 'x+'):
+                with self.assertRaises(FileExistsError):
+                    with atomic_write_lock(symlink_path, mode=exclusive_mode):
+                        pass
+        finally:
+            os.chmod(ro_dir, 0o755)
+
 
 class TestModeBehavior(unittest.TestCase):
     """Test the open_modes_behaviour helper."""

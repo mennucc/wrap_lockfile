@@ -43,7 +43,7 @@ except Exception as e:
     sys.stderr.write('(wrap_lockfile failed when detecting copy-on-write support)\n')
 
 
-
+####################### fallback exceptions and implementations
 
 class LockTimeout(Exception):
     """Exception raised when lock acquisition times out."""
@@ -68,6 +68,7 @@ def mylockfile(fil, timeout=None):
 myLockTimeout = LockTimeout
 mylockfile_exceptions = ()
 
+############################# use lockfile
 
 # Try to import the lockfile library
 try:
@@ -82,6 +83,8 @@ try:
     )
 except ImportError:
     lockfile = None
+
+########################## use fcntl
 
 # will use fcntl for fallback implementation (Unix/Linux only)
 try:
@@ -182,6 +185,8 @@ if HAVE_FCNTL:
 
             return False  # Don't suppress exceptions
 
+######################################## mscvrt
+
 try:
     import msvcrt
 except ImportError:
@@ -279,6 +284,8 @@ if msvcrt and sys.platform.startswith('win'):
             return False  # Don't suppress exceptions
 
 
+######################################### chose implementation
+
 if lockfile is None:
     # No lockfile library available, use platform-specific fallback
     if msvcrt and sys.platform.startswith('win'):
@@ -296,6 +303,8 @@ if lockfile is None:
         # mylockfile, myLockTimeout, mylockfile_exceptions already set above
         pass
 
+
+#################################### atomic calls
 
 def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=None, temp_suffix='.tmp'):
     """

@@ -438,7 +438,9 @@ The module includes comprehensive unit tests covering:
 - Atomic write guarantees
 - Binary and text mode operations
 - Exception handling and cleanup
-- Cross-platform compatibility
+- Cross-platform compatibility (Linux, Windows, macOS)
+- Full Python open-mode coverage: every read/write/update/append mode
+  (except read-only) is exercised, including exclusive `x`/`x+`.
 
 Run tests:
 ```bash
@@ -520,7 +522,6 @@ All locking mechanisms are thread-safe:
 
 1. **Network filesystems**: Some network filesystems (NFS, SMB) may have incomplete or slow file locking support
 2. **Lock files**: Creates `.lock` files adjacent to target files (cleaned up automatically)
-3. **Windows limitations**: `os.rename()` requires special handling (automatically handled)
 
 ---
 

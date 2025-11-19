@@ -378,7 +378,10 @@ class TestAtomicWriteWithLock(unittest.TestCase):
         socket_path = os.path.join(self.test_dir, 'test.sock')
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            sock.bind(socket_path)
+            try:
+                sock.bind(socket_path)
+            except PermissionError as exc:
+                self.skipTest(f"Cannot create Unix socket in test dir: {exc}")
 
             # Should fail when trying to open socket for writing
             with self.assertRaises((RuntimeError, OSError, IOError)):
@@ -658,7 +661,10 @@ class TestAtomicWriteNoLock(unittest.TestCase):
         socket_path = os.path.join(self.test_dir, 'test.sock')
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            sock.bind(socket_path)
+            try:
+                sock.bind(socket_path)
+            except PermissionError as exc:
+                self.skipTest(f"Cannot create Unix socket in test dir: {exc}")
 
             # Should raise RuntimeError for socket
             with self.assertRaises(RuntimeError) as context:
@@ -966,7 +972,10 @@ class TestAtomicWriteLock(unittest.TestCase):
         socket_path = os.path.join(self.test_dir, 'test.sock')
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
-            sock.bind(socket_path)
+            try:
+                sock.bind(socket_path)
+            except PermissionError as exc:
+                self.skipTest(f"Cannot create Unix socket in test dir: {exc}")
 
             # Should raise RuntimeError for socket
             with self.assertRaises(RuntimeError) as context:

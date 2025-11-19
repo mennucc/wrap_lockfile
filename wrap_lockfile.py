@@ -303,6 +303,71 @@ if lockfile is None:
         # mylockfile, myLockTimeout, mylockfile_exceptions already set above
         pass
 
+########################################## file mode for opening
+class ModeBehavior:
+    """Represents the behavior characteristics of a file opening mode."""
+    
+    def __init__(self, read=False, write=False, append=False, truncate=False, 
+                 create=False, must_exist=False, binary=False, exclusive=False):
+        self.read = read
+        self.write = write
+        self.append = append
+        self.truncate = truncate
+        self.create = create
+        self.must_exist = must_exist
+        self.binary = binary
+        self.exclusive = exclusive
+    
+    @property
+    def text(self):
+        return not self.binary
+    
+    def __repr__(self):
+        attrs = [f"{k}={v}" for k, v in self.__dict__.items() if v]
+        return f"ModeBehavior({', '.join(attrs)})"
+
+
+def open_modes_behaviour(mode):
+    """
+    Returns the behavior characteristics of Python file opening modes.
+    
+    Args:
+        mode (str): File opening mode (e.g., 'r', 'w', 'w+', 'rb', etc.)
+    
+    Returns:
+        ModeBehavior: Object with boolean attributes for mode behaviors
+    
+    Raises:
+        ValueError: If mode is invalid
+    """
+    # Extract binary/text and base mode
+    binary = 'b' in mode
+    text_explicit = 't' in mode
+    base_mode = mode.replace('b', '').replace('t', '')
+    
+    # Validate mode
+    if binary and text_explicit:
+        raise ValueError(f"Invalid file mode: '{mode}'. Cannot specify both 'b' and 't'")
+    
+    allowed_modes = ('r', 'r+', 'w', 'w+', 'a', 'a+', 'x', 'x+')
+    if base_mode not in allowed_modes:
+        raise ValueError(f"Invalid file mode: '{mode}'. Valid modes are: {', '.join(allowed_modes)} (with optional 'b' or 't')")
+    
+    
+    # Initialize behavior object
+    mb = ModeBehavior(binary=binary)
+    
+    # Set behaviors based on mode
+    mb.read = '+' in base_mode or base_mode == 'r'
+    mb.write = base_mode != 'r'
+    mb.append = 'a' in base_mode
+    mb.truncate = 'w' in base_mode
+    mb.create = base_mode != 'r' and base_mode != 'r+'
+    mb.must_exist = 'r' in base_mode
+    mb.exclusive = 'x' in base_mode
+    
+    return mb
+
 
 #################################### atomic calls
 

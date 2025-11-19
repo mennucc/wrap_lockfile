@@ -24,6 +24,7 @@ from wrap_lockfile import (
     atomic_write_content_with_lock,
     atomic_write_no_lock,
     atomic_write_lock,
+    open_modes_behaviour,
     LockTimeout,
     AlreadyLocked,
     LockFailed,
@@ -1024,6 +1025,54 @@ class TestAtomicWriteLock(unittest.TestCase):
             content = f.read()
             self.assertIn('initial content', content)
             self.assertIn('appended content', content)
+
+
+class TestModeBehavior(unittest.TestCase):
+    """Test the open_modes_behaviour helper."""
+
+    def test_valid_modes(self):
+        """Ensure valid modes expose the expected behavior flags."""
+        cases = [
+            ('r', dict(read=True, write=False, append=False,
+                       truncate=False, create=False, must_exist=True,
+                       binary=False, exclusive=False)),
+            ('w+', dict(read=True, write=True, append=False,
+                        truncate=True, create=True, must_exist=False,
+                        binary=False, exclusive=False)),
+            ('rb', dict(read=True, write=False, append=False,
+                        truncate=False, create=False, must_exist=True,
+                        binary=True, exclusive=False)),
+            ('a+', dict(read=True, write=True, append=True,
+                        truncate=False, create=True, must_exist=False,
+                        binary=False, exclusive=False)),
+            ('x', dict(read=False, write=True, append=False,
+                       truncate=False, create=True, must_exist=False,
+                       binary=False, exclusive=True)),
+            ('x+', dict(read=True, write=True, append=False,
+                        truncate=False, create=True, must_exist=False,
+                        binary=False, exclusive=True)),
+            ('a', dict(read=False, write=True, append=True,
+                       truncate=False, create=True, must_exist=False,
+                       binary=False, exclusive=False)),
+            ('r+', dict(read=True, write=True, append=False,
+                        truncate=False, create=False, must_exist=True,
+                        binary=False, exclusive=False)),
+        ]
+
+        for mode, expected in cases:
+            with self.subTest(mode=mode):
+                behavior = open_modes_behaviour(mode)
+                for attr, value in expected.items():
+                    self.assertEqual(getattr(behavior, attr), value,
+                                     f"{mode} expected {attr}={value}")
+                self.assertEqual(behavior.text, not behavior.binary)
+
+    def test_invalid_modes_raise(self):
+        """Invalid combinations should raise ValueError."""
+        for mode in ('rtb', 'invalid'):
+            with self.subTest(mode=mode):
+                with self.assertRaises(ValueError):
+                    open_modes_behaviour(mode)
 
 
 if __name__ == '__main__':

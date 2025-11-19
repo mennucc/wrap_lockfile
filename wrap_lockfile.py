@@ -582,11 +582,17 @@ class atomic_write_no_lock(object):
             # Copy the existing file content to the temporary file using COW when available
             try:
                 self._temp_file.close()
-                if not CP_HAS_REFLINK:
-                    shutil.copy2(self.target_name, self._temp_filename, follow_symlinks=True)
-                else:
+                reflinked = False
+                if CP_HAS_REFLINK:
                     # Use cp with --reflink=auto to exploit COW filesystems (btrfs, xfs, etc.)
-                    subprocess.run(["cp", "-p", CP_HAS_REFLINK, str(self.target_name), str(self._temp_filename)], check=True)
+                    proc = subprocess.run(["cp", "-p", CP_HAS_REFLINK, str(self.target_name), str(self._temp_filename)],
+                                          capture_output=True)
+                    reflinked = 0 == (proc.returncode)
+                    if not reflinked:
+                        logger.warning(f'`cp -p {CP_HAS_REFLINK} {self.target_name!s} {self._temp_filename!s}` failed,'
+                                       f' stdout={proc.stdout} ,stderr={proc.stderr}')
+                if not reflinked:
+                    shutil.copy2(self.target_name, self._temp_filename, follow_symlinks=True)
 
                 # Reopen the temp file in the requested mode
                 self._temp_file = open(self._temp_filename, self.mode,

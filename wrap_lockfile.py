@@ -440,12 +440,14 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
 
             # Preserve file permissions if the target file existed
             if os.path.exists(target_name):
+                st_mode = None
                 try:
                     original_stat = os.stat(target_name)
-                    os.chmod(temp_file, original_stat.st_mode)
+                    st_mode = original_stat.st_mode
+                    os.chmod(temp_file, st_mode)
                 except (OSError, IOError) as E:
                     # If permission copy fails, continue anyway
-                    logger.error(f'Could not preserve permission {original_stat.st_mode} for {target_name} : {E}')
+                    logger.error(f'Could not preserve permission {st_mode} for {target_name} : {E}')
 
             # Atomic replace keeps the write single-step across platforms
             os.replace(temp_file, target_name)
@@ -596,12 +598,14 @@ class atomic_write_no_lock(object):
         if exc_type is None:
             # Preserve file permissions if the target file existed
             if os.path.exists(self.target_name):
+                st_mode = None
                 try:
                     original_stat = os.stat(self.target_name)
-                    os.chmod(self._temp_filename, original_stat.st_mode)
+                    st_mode = original_stat.st_mode
+                    os.chmod(self._temp_filename, st_mode)
                 except (OSError, IOError) as E:
                     # If permission copy fails, continue anyway
-                    logger.error(f'Could not preserve permission {original_stat.st_mode} for {self.target_name} : {E}')
+                    logger.error(f'Could not preserve permission {st_mode} for {self.target_name} : {E}')
 
             # Move the temp file to the destination (preserves symlink if filename was a symlink)
             os.replace(self._temp_filename, self.target_name)

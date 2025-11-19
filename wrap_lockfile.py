@@ -674,8 +674,16 @@ class atomic_write_lock(atomic_write_no_lock):
 
     def __enter__(self):
         """Acquire lock and create temporary file for writing."""
-        # First, acquire the lock using mylockfile
-        self._lock = mylockfile(self.filename, timeout=self.lock_timeout)
+        # First, acquire the lock using mylockfile. Lock the resolved target so
+        # aliases and read-only symlink parents behave consistently.
+        lock_target = self.filename
+        if os.path.islink(lock_target):
+            readlink = os.readlink(lock_target)
+            if os.path.isabs(readlink):
+                lock_target = readlink
+            else:
+                lock_target = os.path.join(os.path.dirname(lock_target), readlink)
+        self._lock = mylockfile(os.path.abspath(lock_target), timeout=self.lock_timeout)
         self._lock.__enter__()
 
         try:

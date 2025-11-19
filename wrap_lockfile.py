@@ -463,7 +463,7 @@ def atomic_write_content_with_lock(filepath, content, use_lock=True, timeout=Non
 
     # Execute with or without locking
     if use_lock:
-        lock = mylockfile(filepath, timeout=timeout)
+        lock = mylockfile(target_name, timeout=timeout)
         with lock:
             _write_and_rename()
     else:

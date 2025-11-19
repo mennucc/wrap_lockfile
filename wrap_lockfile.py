@@ -499,9 +499,11 @@ class atomic_write_no_lock(object):
         self._temp_filename = None
         self.V = V
 
+    def __enter__(self):
+        """Create and open a temporary file for writing."""
         # Check for read-only mode - atomic write doesn't make sense for read-only
         if mode == 'r' or mode == 'rb':
-            raise ValueError('atomic_write_no_lock does not support read-only mode: %r' % mode)
+            raise ValueError('atomic_write_no_lock does not support read-only mode: %r' % self.mode)
 
         # Check if the path exists and is not a regular file (or symlink to file)
         if os.path.exists(self.filename) and not os.path.isfile(self.filename):
@@ -521,8 +523,6 @@ class atomic_write_no_lock(object):
         #if target_dir and not os.path.exists(target_dir):
         #    os.makedirs(target_dir)
 
-    def __enter__(self):
-        """Create and open a temporary file for writing."""
         # Create a temporary file in the same directory as the target file
         D = self.target_dir
 

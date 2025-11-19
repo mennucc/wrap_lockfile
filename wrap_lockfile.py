@@ -490,6 +490,7 @@ class atomic_write_no_lock(object):
         self.filename = os.path.abspath(filename)
         assert ( isinstance(mode,str) and re.fullmatch(r'[rwa](\+)?b?', mode) ) , f"Invalid file mode: {mode!r}"
         self.mode = mode
+        self.mode_behaviour = open_modes_behaviour(mode)
         self.buffering = buffering
         self.encoding = encoding
         self.errors = errors
@@ -502,12 +503,20 @@ class atomic_write_no_lock(object):
     def __enter__(self):
         """Create and open a temporary file for writing."""
         # Check for read-only mode - atomic write doesn't make sense for read-only
-        if mode == 'r' or mode == 'rb':
+        if not self.mode_behaviour.write:
             raise ValueError('atomic_write_no_lock does not support read-only mode: %r' % self.mode)
 
         # Check if the path exists and is not a regular file (or symlink to file)
-        if os.path.exists(self.filename) and not os.path.isfile(self.filename):
-            raise RuntimeError('Works only on files, not %r' % self.filename)
+        if os.path.exists(self.filename):
+            # note that exclusive opening will not tranverse thru symlinks!
+            if self.mode_behaviour.exclusive:
+                raise FileExistsError(
+                    errno.EEXIST,
+                    os.strerror(errno.EEXIST),
+                    self.filename,
+                )
+            if not os.path.isfile(self.filename):
+                raise RuntimeError('Works only on files, not %r' % self.filename)
 
         # Handle symlinks - resolve the target but preserve the symlink
         self.target_name = self.filename
@@ -537,7 +546,7 @@ class atomic_write_no_lock(object):
         }
 
         # Only add text-mode parameters if not in binary mode
-        if 'b' not in self.mode:
+        if self.mode_behaviour.text:
             kwargs['encoding'] = self.encoding
             kwargs['errors'] = self.errors
             kwargs['newline'] = self.newline
@@ -550,7 +559,7 @@ class atomic_write_no_lock(object):
 
         # For append mode or update modes, copy existing content to temp file
         # This applies to: 'a', 'a+', 'r+', 'w+', 'ab', 'a+b', 'r+b', 'w+b'
-        if os.path.exists(self.target_name) and ('+' in self.mode or 'a' in self.mode):
+        if os.path.exists(self.target_name) and not self.mode_behaviour.truncate:
             # Copy the existing file content to the temporary file using COW when available
             try:
                 self._temp_file.close()
@@ -563,9 +572,9 @@ class atomic_write_no_lock(object):
                 # Reopen the temp file in the requested mode
                 self._temp_file = open(self._temp_filename, self.mode,
                                       buffering=self.buffering,
-                                      encoding=self.encoding if 'b' not in self.mode else None,
-                                      errors=self.errors if 'b' not in self.mode else None,
-                                      newline=self.newline if 'b' not in self.mode else None)
+                                      encoding=self.encoding if self.mode_behaviour.text else None,
+                                      errors=self.errors if self.mode_behaviour.text  else None,
+                                      newline=self.newline if self.mode_behaviour.text else None)
             except Exception:
                 # Clean up temp file on failure
                 if os.path.exists(self._temp_filename):
